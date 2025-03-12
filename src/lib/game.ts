@@ -58,12 +58,9 @@ export class Game{
 
         let canos = this.objects.filter((obj)=>obj.name==="cano")
         const tmp = this.objects.find(obj=>obj.name==="terreno")
-        let alturaTerreno = 0
-        if(tmp){
-            alturaTerreno = tmp.object.height
-        }
+        let alturaTerreno = tmp ? tmp.object.height : 0;
+
         while(canos.length<totalCanos){
-            canos = this.objects.filter((obj)=>obj.name==="cano")
 
             const gap = 80
             const variacaoGapCano = Math.random()*140+100
@@ -197,8 +194,8 @@ export class Game{
     async gameLoop(){
         await this.terrenoParallaxGen()
         await this.pipesGen()
-        this.checarColisoes()
-        this.puloGravidade()
+        await this.checarColisoes()
+        await this.puloGravidade()
     }
 
     gerarCenario(){
@@ -207,12 +204,12 @@ export class Game{
 
     }
 
-    checarColisoes = () => {
+    async checarColisoes(){
 
     }
 
 
-    puloGravidade = () => {
+    async puloGravidade(){
         const vY = this.habilitys.jump - this.physics.gravity
 
         if(this.habilitys.jump>0){
