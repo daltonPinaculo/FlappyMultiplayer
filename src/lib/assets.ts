@@ -40,6 +40,16 @@ export class Assets{
 
     }
 
+    async gerarCano():Promise<PIXI.Sprite>{
+
+        const texture = await PIXI.Assets.load('/pipe.png');
+        const sprite = new PIXI.Sprite(texture)
+
+        return sprite
+
+
+    }
+
     gerarPassaro(){
 
 
