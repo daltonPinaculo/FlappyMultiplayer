@@ -21,7 +21,22 @@ export class Assets{
         }
     }
 
-    gerarPersonagem(){
+    async gerarPersonagem():Promise<PIXI.Sprite>{
+
+        const texture = await PIXI.Assets.load('/bird.png');
+        const sprite = new PIXI.Sprite(texture)
+        return sprite
+
+    }
+
+
+
+    async gerarTerreno():Promise<PIXI.Sprite>{
+
+        const texture = await PIXI.Assets.load('/terreno.png');
+        const sprite = new PIXI.Sprite(texture)
+
+        return sprite
 
     }
 

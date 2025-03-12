@@ -1,7 +1,14 @@
 import * as PIXI from 'pixi.js';
 import { Assets } from './assets';
+import ShortUniqueId from 'short-unique-id';
 
-
+// Definindo o tipo estendido
+type Obstacle = {
+    object: PIXI.Sprite
+    name: string;
+    id: string;
+};
+const idGen = new ShortUniqueId()
 export class Game{
     
     app: PIXI.Application = new PIXI.Application()
@@ -10,6 +17,7 @@ export class Game{
     assetGenerator = new Assets(this.app)
     
     physics = {
+        // Usando o tipo no array
         gravity:4,
     }
     
@@ -20,12 +28,7 @@ export class Game{
         inGround:false
     }
     
-    obstacles:{
-        x:number,
-        y:number,
-        width:number,
-        height:number
-    }[] = []
+    objects: Obstacle[] = [];
     
     constructor(){
         this.init()
@@ -33,8 +36,23 @@ export class Game{
 
 
     async cenarioInit(){
-        const size = 150
-        this.obstacles.push(this.assetGenerator.gerarCaixa(0,this.app.screen.height-size,this.app.screen.width,size))
+    }
+
+    async terrenoParallaxGen(){
+        
+
+        const terreno = await this.assetGenerator.gerarTerreno()
+        terreno.width=this.app.screen.width/3
+        terreno.height =150
+        terreno.y=this.app.screen.height-terreno.height
+        this.app.stage.addChild(terreno)
+        this.objects.push(
+            {
+                object: terreno,
+                name:"terreno",
+                id: idGen.rnd(4)
+            }
+        )
     }
 
     async init(){
@@ -43,8 +61,7 @@ export class Game{
 
         document.body.appendChild(this.app.canvas);
         
-        const texture = await PIXI.Assets.load('https://pixijs.com/assets/bunny.png');
-        this.player = new PIXI.Sprite(texture);
+        this.player = await this.assetGenerator.gerarPersonagem()
         await this.cenarioInit()
         this.player.anchor.set(0.5);
         this.app.stage.addChild(this.player);
@@ -59,9 +76,9 @@ export class Game{
     }
 
     async gameLoop(){
+        this.terrenoParallaxGen()
         this.checarColisoes()
         this.puloGravidade()
-        this.aceleracao()
     }
 
     gerarCenario(){
@@ -72,8 +89,8 @@ export class Game{
 
     checarColisoes = () => {
         let detectarChao=false
-        this.obstacles.forEach((obj)=>{
-            const topObj = obj.y
+        this.objects.forEach((obj)=>{
+            const topObj = obj.object.y
             if(topObj<=this.player.y+this.player.height){
                 detectarChao=true
             }
@@ -81,27 +98,6 @@ export class Game{
         this.habilitys.inGround=detectarChao
     }
 
-
-    aceleracao = () => {
-        const limiteTela = 120
-        this.player.x += this.habilitys.vX
-        if(this.player.x<=this.app.screen.width/2-limiteTela){
-            this.player.x = this.app.screen.width/2-limiteTela
-            this.player.x += 0.1*this.ticker.deltaTime
-
-        }
-        if(this.player.x>=this.app.screen.width/2+limiteTela){
-            this.player.x = this.app.screen.width/2+limiteTela
-        }
-        if(this.player.x>(this.app.screen.width/2+6)){
-            this.player.x -= this.habilitys.maxSpeed/3
-        }
-
-        if(this.player.x<(this.app.screen.width/2-6)){
-            this.player.x += this.habilitys.maxSpeed/3
-        }
-
-    }
 
     puloGravidade = () => {
         const vY = this.habilitys.jump - this.physics.gravity
