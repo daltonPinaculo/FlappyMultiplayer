@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Game } from '$lib/game';
+	import { io } from 'socket.io-client';
 	import { onMount } from 'svelte';
 
     let game:Game
