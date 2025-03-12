@@ -4,7 +4,7 @@ import ShortUniqueId from 'short-unique-id';
 
 // Definindo o tipo estendido
 type Obstacle = {
-    object: PIXI.Sprite
+    object: PIXI.Sprite | PIXI.Graphics
     name: string;
     id: string;
 };
@@ -67,8 +67,7 @@ export class Game{
 
             const canoCima = await this.assetGenerator.gerarCano()
             const canoBaixo = await this.assetGenerator.gerarCano()
-           
-           
+            
            
             canoCima.width= widthCano
             canoCima.rotation = 3.141593
@@ -83,14 +82,22 @@ export class Game{
             canoBaixo.y= this.app.screen.height-alturaTerreno-canoBaixo.height+20
             canoBaixo.x = this.app.screen.width + (gap*canos.length) - canoCima.width
 
+            const hitbox = new PIXI.Graphics().rect(0,0,widthCano/2,variacaoGapCano+canoCima.height)
+            
+            hitbox.x = canoBaixo.x+widthCano/4
+            hitbox.y = canoCima.height
+
+            this.app.stage.addChild(hitbox)
+            this.stagePipes.attach(hitbox)
+        
             this.app.stage.addChild(canoCima)
-
             this.stagePipes.attach(canoCima)
+
             this.app.stage.addChild(canoBaixo)
-
             this.stagePipes.attach(canoBaixo)
-
-            this.objects = [...this.objects,
+        
+            this.objects = [
+                ...this.objects,
                 {
                     object: canoBaixo,
                     name:"cano",
@@ -100,6 +107,12 @@ export class Game{
                     object: canoCima,
                     name:"cano",
                     id: idGen.rnd(4)
+                },
+
+                {
+                    object: hitbox,
+                    name:"scoreBox",
+                    id: idGen.rnd(4)
                 }
             ]
 
@@ -107,13 +120,13 @@ export class Game{
         }
         
         this.objects = this.objects.filter((obj)=>{
-            if(obj.name!=="cano") return obj
+            if(obj.name!=="cano" && obj.name!=="scoreBox") return obj
             if(obj.object.x>-obj.object.width) return obj
             this.app.stage.removeChild(obj.object)
         })
 
         this.objects = this.objects.map((obj)=>{
-            if(obj.name!=="cano") return obj
+            if(obj.name!=="cano" && obj.name!=="scoreBox") return obj
             obj.object.x-=2
             return obj
         })
@@ -206,6 +219,28 @@ export class Game{
 
     async checarColisoes(){
 
+        const xP = this.player.x
+        const yP = this.player.y
+        const wP = this.player.width
+        const hP = this.player.height
+
+        this.objects.forEach((obj)=>{
+            const xO = obj.object.x
+            const yO = obj.object.y
+            const wO = obj.object.width
+            const hO = obj.object.height
+
+            if (xP + wP > xO &&    // Lado direito do player passa o lado esquerdo do objeto
+                xP < xO + wO &&    // Lado esquerdo do player antes do lado direito do objeto
+                yP + hP > yO &&    // Base do player passa o topo do objeto
+                yP < yO + hO) {    // Topo do player antes da base do objeto
+                
+                if (obj.name === "cano") {
+                    console.log('bateu');
+                }
+            }
+
+        })
     }
 
 
