@@ -5,7 +5,7 @@ import ShortUniqueId from 'short-unique-id';
 // Definindo o tipo estendido
 type Obstacle = {
     object: PIXI.Sprite | PIXI.Graphics
-    name: string;
+    name: "cano" | "terreno" | "scoreBox";
     id: string;
 };
 const idGen = new ShortUniqueId()
@@ -24,15 +24,15 @@ export class Game{
 
 
     physics = {
-        // Usando o tipo no array
         gravity:4,
     }
     
+
+
     habilitys = {
         jump: 0,
-        vX:0,
-        maxSpeed:4,
-        inGround:false
+        isDead:false,
+        score:0
     }
     
     objects: Obstacle[] = [];
@@ -53,7 +53,7 @@ export class Game{
 
     async pipesGen(){
 
-        const totalCanos = 25
+        const totalCanos = 60
         const widthCano = 50
 
         let canos = this.objects.filter((obj)=>obj.name==="cano")
@@ -82,7 +82,7 @@ export class Game{
             canoBaixo.y= this.app.screen.height-alturaTerreno-canoBaixo.height+20
             canoBaixo.x = this.app.screen.width + (gap*canos.length) - canoCima.width
 
-            const hitbox = new PIXI.Graphics().rect(0,0,widthCano/2,variacaoGapCano+canoCima.height)
+            const hitbox = new PIXI.Graphics().rect(0,0,widthCano/2,variacaoGapCano+canoCima.height).fill("transparent")
             
             hitbox.x = canoBaixo.x+widthCano/4
             hitbox.y = canoCima.height
@@ -225,10 +225,10 @@ export class Game{
         const hP = this.player.height
 
         this.objects.forEach((obj)=>{
-            const xO = obj.object.x
-            const yO = obj.object.y
-            const wO = obj.object.width
-            const hO = obj.object.height
+            const xO = obj.object.getBounds().x
+            const yO = obj.object.getBounds().y
+            const wO = obj.object.getBounds().width
+            const hO = obj.object.getBounds().height
 
             if (xP + wP > xO &&    // Lado direito do player passa o lado esquerdo do objeto
                 xP < xO + wO &&    // Lado esquerdo do player antes do lado direito do objeto
@@ -236,7 +236,13 @@ export class Game{
                 yP < yO + hO) {    // Topo do player antes da base do objeto
                 
                 if (obj.name === "cano") {
-                    console.log('bateu');
+                    this.habilitys.isDead=true
+                }
+                if(obj.name==="scoreBox"){
+                    this.habilitys.score++
+                    this.app.stage.removeChild(obj.object)
+                    this.objects = this.objects.filter((obj2)=>obj2.id!==obj.id)
+                    return
                 }
             }
 
@@ -251,17 +257,14 @@ export class Game{
             this.habilitys.jump-=this.physics.gravity
             if(this.habilitys.jump<0) this.habilitys.jump=0           
         }
-        if(!this.habilitys.inGround || this.habilitys.jump>0)
             this.player.y -= vY;
     }
 
     //Keys
     keyRightActions(){
-       this.habilitys.vX = this.habilitys.maxSpeed
     }
     
     keyLeftActions(){
-        this.habilitys.vX = -this.habilitys.maxSpeed
     }
     
     keyUpActions(){
@@ -270,11 +273,9 @@ export class Game{
     }
     
     keyRightRelease(){
-        this.habilitys.vX = 0
     }
     
     keyLeftRelease(){
-        this.habilitys.vX = 0
     }
     
     keyUpRelease () {
