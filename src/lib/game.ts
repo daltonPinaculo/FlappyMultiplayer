@@ -8,6 +8,12 @@ type Obstacle = {
     name: "cano" | "terreno" | "scoreBox";
     id: string;
 };
+
+type GUI = {
+    object: PIXI.Text,
+    name:"texto",
+    id:string
+}
 const idGen = new ShortUniqueId()
 export class Game{
     
@@ -17,10 +23,14 @@ export class Game{
     stagePlayer:PIXI.IRenderLayer = new PIXI.RenderLayer() //Jogador principal
     stageGhostPlayers:PIXI.IRenderLayer = new PIXI.RenderLayer() //Jogadores fantasmas
     stageGUI:PIXI.IRenderLayer = new PIXI.RenderLayer() //Colocar texto,botoes,etc
+    stageScore : PIXI.IRenderLayer = new PIXI.RenderLayer()
     ticker: PIXI.Ticker = new PIXI.Ticker
     player:PIXI.Sprite = new PIXI.Sprite(undefined);
     assetGenerator = new Assets(this.app)
-    
+    world: PIXI.Container = new PIXI.Container({
+        width:1280,
+        height:720
+    })
 
 
     physics = {
@@ -36,20 +46,31 @@ export class Game{
     }
     
     objects: Obstacle[] = [];
+
+    gui: GUI[]= []
     
     constructor(){
         this.init()
     }
 
-
     async cenarioInit(){
 
-        this.app.stage.addChild(this.stagePipes)
-        this.app.stage.addChild(this.stageScene)
-        this.app.stage.addChild(this.stagePlayer)
+        this.world.addChild(this.stagePipes)
+        this.world.addChild(this.stageScene)
+        this.world.addChild(this.stagePlayer)
+        this.world.addChild(this.stageScore)
+        const texto = new PIXI.Text({
+            text:"Pontuação:" +this.habilitys.score
+        })
+        this.gui.push({
+            object:texto,
+            name:"texto",
+            id:idGen.rnd(4)
+        })
+        this.stageScore.attach(texto)
+
    
     }
-
 
     async pipesGen(){
 
@@ -73,27 +94,27 @@ export class Game{
             canoCima.rotation = 3.141593
             canoCima.height = this.app.screen.height/2-variacaoGapCano
             canoCima.y= canoCima.height
-            canoCima.x = this.app.screen.width + (gap*canos.length)
+            canoCima.x = (-this.world.x+this.app.screen.width) + (gap*canos.length)
 
             canoBaixo.width= widthCano
             canoBaixo.rotation = 6.283185
             canoBaixo.height = this.app.screen.height/2-variacaoGapCano
 
             canoBaixo.y= this.app.screen.height-alturaTerreno-canoBaixo.height+20
-            canoBaixo.x = this.app.screen.width + (gap*canos.length) - canoCima.width
+            canoBaixo.x = (-this.world.x+this.app.screen.width) + (gap*canos.length) - canoCima.width
 
             const hitbox = new PIXI.Graphics().rect(0,0,widthCano/2,variacaoGapCano+canoCima.height).fill("transparent")
             
             hitbox.x = canoBaixo.x+widthCano/4
             hitbox.y = canoCima.height
 
-            this.app.stage.addChild(hitbox)
+            this.world.addChild(hitbox)
             this.stagePipes.attach(hitbox)
         
-            this.app.stage.addChild(canoCima)
+            this.world.addChild(canoCima)
             this.stagePipes.attach(canoCima)
 
-            this.app.stage.addChild(canoBaixo)
+            this.world.addChild(canoBaixo)
             this.stagePipes.attach(canoBaixo)
         
             this.objects = [
@@ -118,16 +139,16 @@ export class Game{
 
             canos = this.objects.filter((obj)=>obj.name==="cano")
         }
-        
+
+
         this.objects = this.objects.filter((obj)=>{
             if(obj.name!=="cano" && obj.name!=="scoreBox") return obj
-            if(obj.object.x>-obj.object.width) return obj
-            this.app.stage.removeChild(obj.object)
+            if(obj.object.x>(-this.world.x+obj.object.width)) return obj
+            this.world.removeChild(obj.object)
         })
 
         this.objects = this.objects.map((obj)=>{
             if(obj.name!=="cano" && obj.name!=="scoreBox") return obj
-            obj.object.x-=2
             return obj
         })
 
@@ -136,7 +157,7 @@ export class Game{
     async terrenoParallaxGen(){
 
         
-        const totalTiles = 8
+        const totalTiles = 12
         let terrenos = this.objects.filter((obj)=>obj.name==="terreno")
         while(terrenos.length<totalTiles){
             const sizeTerreno = this.app.screen.width/5
@@ -153,7 +174,7 @@ export class Game{
             else{
                 terreno.x=0
             }
-            this.app.stage.addChild(terreno)
+            this.world.addChild(terreno)
 
             this.stageScene.attach(terreno)
 
@@ -167,15 +188,15 @@ export class Game{
             terrenos = this.objects.filter((obj)=>obj.name==="terreno")
         }
         
+        
         this.objects = this.objects.filter((obj)=>{
             if(obj.name!=="terreno") return obj
-            if(obj.object.x>-obj.object.width) return obj
-            this.app.stage.removeChild(obj.object)
+            if(obj.object.x>(-this.world.x-obj.object.width)) return obj
+            this.world.removeChild(obj.object)
         })
 
         this.objects = this.objects.map((obj)=>{
             if(obj.name!=="terreno") return obj
-            obj.object.x-=3
             return obj
         })
 
@@ -192,7 +213,9 @@ export class Game{
         this.player.anchor.set(0.5);
         this.player.x = this.app.screen.width/2
         this.player.y = 100
-        this.app.stage.addChild(this.player);
+
+        this.app.stage.addChild(this.world);
+        this.world.addChild(this.player)
         this.stagePlayer.attach(this.player)
 
         
@@ -205,10 +228,20 @@ export class Game{
     }
 
     async gameLoop(){
+        this.movimento()
         await this.terrenoParallaxGen()
         await this.pipesGen()
         await this.checarColisoes()
         await this.puloGravidade()
+        this.gui[0].object.text="Pontuação: "+this.habilitys.score
+    }
+
+    movimento(){
+        const velocidade = 4
+        this.player.x+=velocidade
+        this.world.x=-(this.player.x - this.app.screen.width/2)
+
+
     }
 
     gerarCenario(){
@@ -225,11 +258,10 @@ export class Game{
         const hP = this.player.height
 
         this.objects.forEach((obj)=>{
-            const xO = obj.object.getBounds().x
-            const yO = obj.object.getBounds().y
+            const xO = obj.object.x
+            const yO = obj.object.y
             const wO = obj.object.getBounds().width
             const hO = obj.object.getBounds().height
-
             if (xP + wP > xO &&    // Lado direito do player passa o lado esquerdo do objeto
                 xP < xO + wO &&    // Lado esquerdo do player antes do lado direito do objeto
                 yP + hP > yO &&    // Base do player passa o topo do objeto
@@ -240,7 +272,7 @@ export class Game{
                 }
                 if(obj.name==="scoreBox"){
                     this.habilitys.score++
-                    this.app.stage.removeChild(obj.object)
+                    this.world.removeChild(obj.object)
                     this.objects = this.objects.filter((obj2)=>obj2.id!==obj.id)
                     return
                 }
