@@ -160,7 +160,7 @@ export class Game{
             
             const limiteVariacaoSubida = 400
             const ultimoCano = canos[canos.length-1]
-            const gap = this.randomIntFromInterval(200,250)
+            const gap = this.randomIntFromInterval(230,280)
             const variacaoGapCano = this.randomIntFromInterval(180,250)
             const variacaoSubidaCano = this.randomIntFromInterval(80,limiteVariacaoSubida)
             const canoCima = await this.assetGenerator.gerarCano()
@@ -247,6 +247,8 @@ export class Game{
         canvaDiv!.appendChild(this.app.canvas);
 
         Sound.sound.add('flap', '/sons/flap.mp3');
+        Sound.sound.add('hit', '/sons/hit.mp3');
+        Sound.sound.add('die', '/sons/die.mp3');
 
         
         this.player = await this.assetGenerator.gerarPersonagem()
@@ -335,9 +337,14 @@ export class Game{
                 
                 if (obj.label === "cano" || obj.label==="terreno") {
                     this.habilitys.isDead=true
+                    Sound.sound.play('hit');
+                    setTimeout(()=>{
+
+                        Sound.sound.play('die');
+                    },500)
                     setTimeout(()=>{
                         this.mostrarMenuPrincipal()
-                    },200)
+                    },1000)
                 }
                 
                 if(obj.label==="scoreBox"){
@@ -381,7 +388,7 @@ export class Game{
 
  
         if(this.habilitys.isDead){
-            this.player.y += this.physics.gravity*3;
+            this.player.y += this.physics.gravity*20;
             return
         }
 
@@ -414,7 +421,7 @@ export class Game{
     
     keyUpRelease () {
                 //Pulo
-                if(!this.game.keyDelay.fly){
+                if(!this.game.keyDelay.fly || this.habilitys.isDead){
                     return
                 }
                 this.habilitys.jump=this.habilitys.jumpMax
