@@ -1,28 +1,18 @@
 import * as PIXI from 'pixi.js';
 import { Assets } from './assets';
-import ShortUniqueId from 'short-unique-id';
+import * as Sound from '@pixi/sound';
 
-// Definindo o tipo estendido
-type Obstacle = {
-    object: PIXI.Sprite | PIXI.Graphics
-    name: "cano" | "terreno" | "scoreBox";
-    id: string;
-};
-
-type GUI = {
-    object: PIXI.Text,
-    name:"texto",
-    id:string
-}
-const idGen = new ShortUniqueId()
 export class Game{
     
     app: PIXI.Application = new PIXI.Application()
+
     stageScene:PIXI.IRenderLayer = new PIXI.RenderLayer() //Cenario de fundo
     stagePipes:PIXI.IRenderLayer = new PIXI.RenderLayer() //Os cano
     stagePlayer:PIXI.IRenderLayer = new PIXI.RenderLayer() //Jogador principal
     stageGhostPlayers:PIXI.IRenderLayer = new PIXI.RenderLayer() //Jogadores fantasmas
-    stageGUI:PIXI.IRenderLayer = new PIXI.RenderLayer() //Colocar texto,botoes,etc
+    stageGUIStart:PIXI.IRenderLayer = new PIXI.RenderLayer() //Colocar texto,botoes,etc
+    stageGUIBoard:PIXI.IRenderLayer = new PIXI.RenderLayer() //Colocar texto,botoes,etc
+    
     stageScore : PIXI.IRenderLayer = new PIXI.RenderLayer()
     ticker: PIXI.Ticker = new PIXI.Ticker
     player:PIXI.Sprite = new PIXI.Sprite(undefined);
@@ -34,74 +24,160 @@ export class Game{
 
 
     physics = {
-        gravity:4,
+        gravity:0.4,
     }
     
-
+    game = {
+        currentTime:0,
+        start:false,
+        menu:false,
+        keyDelay:{
+            fly:true
+        }
+    }
 
     habilitys = {
         jump: 0,
         isDead:false,
-        score:0
+        score:0,
+        jumpMax:3,
+        vX:2,
+        maxVx:4,
+        vY:0,
+        maxVy:4
     }
     
-    objects: Obstacle[] = [];
 
-    gui: GUI[]= []
-    
     constructor(){
         this.init()
     }
 
     async cenarioInit(){
 
+        this.app.stage.addChild(this.world);
+        this.world.addChild(this.player)
+        this.stagePlayer.attach(this.player)
         this.world.addChild(this.stagePipes)
         this.world.addChild(this.stageScene)
         this.world.addChild(this.stagePlayer)
         this.world.addChild(this.stageScore)
-        const texto = new PIXI.Text({
-            text:"Pontuação:" +this.habilitys.score
-        })
-        this.gui.push({
-            object:texto,
-            name:"texto",
-            id:idGen.rnd(4)
-        })
-        this.stageScore.attach(texto)
+        this.world.addChild(this.stageGUIBoard)
+        this.world.addChild(this.stageGUIStart)
+        await this.gerarMenus()
+        await this.terrenoParallaxGen()
+        await this.pipesGen()
 
-   
     }
+
+    async gerarMenus(){
+        const objetos = this.assetGenerator.gerarMenuInicial()
+
+        this.world.addChild(objetos.fundo)
+        this.world.addChild(objetos.botao)
+        this.world.addChild(objetos.titulo)
+        this.stageGUIStart.attach(objetos.fundo)
+        this.stageGUIStart.attach(objetos.botao)
+        this.stageGUIStart.attach(objetos.titulo)
+        this.mostrarMenuPrincipal()
+    
+    }
+
+    async esconderMenuPrincipal(){
+        this.stageGUIStart.renderLayerChildren.forEach((obj)=>{
+            obj.visible=false
+        })
+    }
+
+    async resetarPlayer(){
+        this.player.x = this.app.screen.width/2 - this.player.width/2
+        this.player.y = this.app.screen.height/2-200
+        this.habilitys.isDead=false
+        this.terrenoParallaxGen()
+    }
+
+    async resetarCenario(){
+        
+        while(this.stagePipes.renderLayerChildren[0]) { 
+            this.world.removeChild(this.stagePipes.renderLayerChildren[0]); 
+        }
+        while(this.stageScene.renderLayerChildren[0]) { 
+            this.world.removeChild(this.stageScene.renderLayerChildren[0]); 
+        }
+     
+    }
+
+    async mostrarMenuPrincipal(){
+
+        const childrens = this.stageGUIStart.renderLayerChildren
+        const bounds = this.world.position
+        const btnStart = childrens.find((obj)=>obj.label==="btnStart");
+        const fundo = childrens.find((obj)=>obj.label==="fundo");
+        const titulo = childrens.find((obj)=>obj.label==="titulo");
+        
+        
+        if(btnStart){
+            btnStart.x = this.app.screen.width/2 - childrens[1].width/2 - bounds.x
+            btnStart.removeAllListeners()
+            btnStart.eventMode = 'static';
+            btnStart.cursor = 'pointer';
+            btnStart.on("pointerdown",()=>{
+                this.esconderMenuPrincipal()
+                this.resetarPlayer()
+                this.resetarCenario()
+                this.game.start=true
+            })
+    
+        }
+
+        if(fundo){
+            fundo.x=-bounds.x
+        }
+
+        if(titulo){
+            titulo.y=150
+            titulo.x=  this.app.screen.width/2 - titulo.width/2-bounds.x
+        }
+
+
+        childrens.forEach((obj)=>{
+            obj.visible=true
+        })
+
+        
+    }
+
 
     async pipesGen(){
 
         const totalCanos = 60
         const widthCano = 50
 
-        let canos = this.objects.filter((obj)=>obj.name==="cano")
-        const tmp = this.objects.find(obj=>obj.name==="terreno")
-        let alturaTerreno = tmp ? tmp.object.height : 0;
+        let canos = this.stagePipes.renderLayerChildren.filter((obj)=>obj.label=="cano")
+        const tmp = this.stageScene.renderLayerChildren.find(obj=>obj.label==="terreno")
+        let alturaTerreno = tmp ? tmp.height : 0;
 
         while(canos.length<totalCanos){
-
-            const gap = 80
-            const variacaoGapCano = Math.random()*140+100
-
+            
+            const limiteVariacaoSubida = 400
+            const ultimoCano = canos[canos.length-1]
+            const gap = this.randomIntFromInterval(200,250)
+            const variacaoGapCano = this.randomIntFromInterval(180,250)
+            const variacaoSubidaCano = this.randomIntFromInterval(80,limiteVariacaoSubida)
             const canoCima = await this.assetGenerator.gerarCano()
             const canoBaixo = await this.assetGenerator.gerarCano()
-            
-           
-            canoCima.width= widthCano
+
+
+            const xPos = ultimoCano ? ultimoCano.x + gap :  this.app.screen.width
+
+            canoCima.label='cano'
             canoCima.rotation = 3.141593
-            canoCima.height = this.app.screen.height/2-variacaoGapCano
-            canoCima.y= canoCima.height
-            canoCima.x = (-this.world.x+this.app.screen.width) + (gap*canos.length)
+            canoCima.y= variacaoSubidaCano
+            canoCima.x = xPos
 
-            canoBaixo.width= widthCano
-            canoBaixo.rotation = 6.283185
-            canoBaixo.height = this.app.screen.height/2-variacaoGapCano
 
-            canoBaixo.y= this.app.screen.height-alturaTerreno-canoBaixo.height+20
-            canoBaixo.x = (-this.world.x+this.app.screen.width) + (gap*canos.length) - canoCima.width
+            canoBaixo.label='cano'
+            canoBaixo.y= variacaoSubidaCano + variacaoGapCano
+            canoBaixo.x = xPos
 
             const hitbox = new PIXI.Graphics().rect(0,0,widthCano/2,variacaoGapCano+canoCima.height).fill("transparent")
             
@@ -116,59 +192,33 @@ export class Game{
 
             this.world.addChild(canoBaixo)
             this.stagePipes.attach(canoBaixo)
-        
-            this.objects = [
-                ...this.objects,
-                {
-                    object: canoBaixo,
-                    name:"cano",
-                    id: idGen.rnd(4)
-                },
-                {
-                    object: canoCima,
-                    name:"cano",
-                    id: idGen.rnd(4)
-                },
 
-                {
-                    object: hitbox,
-                    name:"scoreBox",
-                    id: idGen.rnd(4)
-                }
-            ]
-
-            canos = this.objects.filter((obj)=>obj.name==="cano")
+            canos = this.stagePipes.renderLayerChildren.filter((obj)=>obj.label==="cano")
         }
 
-
-        this.objects = this.objects.filter((obj)=>{
-            if(obj.name!=="cano" && obj.name!=="scoreBox") return obj
-            if(obj.object.x>(-this.world.x+obj.object.width)) return obj
-            this.world.removeChild(obj.object)
-        })
-
-        this.objects = this.objects.map((obj)=>{
-            if(obj.name!=="cano" && obj.name!=="scoreBox") return obj
-            return obj
+        this.stagePipes.renderLayerChildren.map((obj)=>{
+            if(obj.label!=="cano" && obj.label!=="scoreBox") return obj
+            if(obj.x>(-this.world.x-obj.width)  ) return obj
+            this.world.removeChild(obj)
         })
 
     }
 
     async terrenoParallaxGen(){
-
-        
         const totalTiles = 12
-        let terrenos = this.objects.filter((obj)=>obj.name==="terreno")
+        let terrenos = this.stageScene.renderLayerChildren.filter((obj)=>obj.label==="terreno")
         while(terrenos.length<totalTiles){
             const sizeTerreno = this.app.screen.width/5
             const terreno = await this.assetGenerator.gerarTerreno()
             terreno.width= sizeTerreno
+            terreno.label='terreno'
+
             terreno.height =150
             terreno.y=this.app.screen.height-terreno.height
             if(terrenos.length>0){
                 const ultimoTile = terrenos[terrenos.length-1]
                 if(ultimoTile){
-                    terreno.x= ultimoTile.object.x+ultimoTile.object.width
+                    terreno.x= ultimoTile.x+ultimoTile.width
                 }
             }
             else{
@@ -178,104 +228,124 @@ export class Game{
 
             this.stageScene.attach(terreno)
 
-            this.objects.push(
-                {
-                    object: terreno,
-                    name:"terreno",
-                    id: idGen.rnd(4)
-                }
-            )
-            terrenos = this.objects.filter((obj)=>obj.name==="terreno")
+            terrenos = this.stageScene.renderLayerChildren.filter((obj)=>obj.label==="terreno")
         }
         
-        
-        this.objects = this.objects.filter((obj)=>{
-            if(obj.name!=="terreno") return obj
-            if(obj.object.x>(-this.world.x-obj.object.width)) return obj
-            this.world.removeChild(obj.object)
-        })
-
-        this.objects = this.objects.map((obj)=>{
-            if(obj.name!=="terreno") return obj
-            return obj
+        this.stageScene.renderLayerChildren.filter((obj)=>{
+            if(obj.label!=="terreno") return obj
+            if(obj.x>-this.world.x-obj.width) return obj
+            this.world.removeChild(obj)
         })
 
     }
 
     async init(){
         
-        await this.app.init({ background: '#1099bb', resizeTo: window });
+        await this.app.init({ background: '#1099bb', width:800, height: 800 });
         
-        document.body.appendChild(this.app.canvas);
+        const canvaDiv = document.querySelector(".game")
+        canvaDiv!.appendChild(this.app.canvas);
+
+        Sound.sound.add('flap', '/sons/flap.mp3');
+
         
         this.player = await this.assetGenerator.gerarPersonagem()
-
-        this.player.anchor.set(0.5);
-        this.player.x = this.app.screen.width/2
-        this.player.y = 100
-
-        this.app.stage.addChild(this.world);
-        this.world.addChild(this.player)
-        this.stagePlayer.attach(this.player)
-
-        
+        this.resetarPlayer()        
         await this.cenarioInit()
 
         this.app.ticker.add(async(t) => {        
             this.ticker = t
             await this.gameLoop()
         })    
+
+
     }
 
     async gameLoop(){
-        this.movimento()
-        await this.terrenoParallaxGen()
-        await this.pipesGen()
-        await this.checarColisoes()
-        await this.puloGravidade()
-        this.gui[0].object.text="Pontuação: "+this.habilitys.score
+     
+        this.guiController()
+        
+        if(!this.habilitys.isDead && this.game.start){
+            this.movimento()
+            await this.terrenoParallaxGen()
+            await this.pipesGen()
+            await this.checarColisoes()
+        }
+        
+        if(this.game.start){
+            this.puloGravidade()
+        }        
     }
+
+
+    async guiController(){
+
+        if(!this.game.start){
+            this.startMenu()
+        }
+        if(this.game.menu){
+            this.scoreMenu()
+        }
+    }
+
+    async startMenu(){
+
+    }
+
+    async scoreMenu(){
+
+    }
+
 
     movimento(){
-        const velocidade = 4
+       
+        const limitVx = 4
+        const increaseSpeed = 0.00009
+        this.game.currentTime+=this.ticker.elapsedMS*increaseSpeed
+       
+        const velocidade = 2+(this.game.currentTime) > limitVx ? limitVx : 2+(this.game.currentTime)
+       
         this.player.x+=velocidade
-        this.world.x=-(this.player.x - this.app.screen.width/2)
-
-
-    }
-
-    gerarCenario(){
-
+       
+        this.world.x = -(this.player.x - this.app.screen.width/2)
 
 
     }
 
     async checarColisoes(){
 
-        const xP = this.player.x
-        const yP = this.player.y
-        const wP = this.player.width
-        const hP = this.player.height
+        const xP = this.player.getBounds().x
+        const yP = this.player.getBounds().y
+        const wP = this.player.getBounds().width
+        const hP = this.player.getBounds().height
 
-        this.objects.forEach((obj)=>{
-            const xO = obj.object.x
-            const yO = obj.object.y
-            const wO = obj.object.getBounds().width
-            const hO = obj.object.getBounds().height
+        const allLayers = [...this.stagePipes.renderLayerChildren,...this.stageScene.renderLayerChildren]
+
+        allLayers.forEach((obj)=>{
+            const xO = obj.getBounds().x
+            const yO = obj.getBounds().y
+            const wO = obj.getBounds().width
+            const hO = obj.getBounds().height
+            
             if (xP + wP > xO &&    // Lado direito do player passa o lado esquerdo do objeto
                 xP < xO + wO &&    // Lado esquerdo do player antes do lado direito do objeto
                 yP + hP > yO &&    // Base do player passa o topo do objeto
                 yP < yO + hO) {    // Topo do player antes da base do objeto
                 
-                if (obj.name === "cano") {
+                
+                if (obj.label === "cano" || obj.label==="terreno") {
                     this.habilitys.isDead=true
+                    setTimeout(()=>{
+                        this.mostrarMenuPrincipal()
+                    },200)
                 }
-                if(obj.name==="scoreBox"){
+                
+                if(obj.label==="scoreBox"){
                     this.habilitys.score++
-                    this.world.removeChild(obj.object)
-                    this.objects = this.objects.filter((obj2)=>obj2.id!==obj.id)
+                    this.world.removeChild(obj)
                     return
                 }
+
             }
 
         })
@@ -283,13 +353,46 @@ export class Game{
 
 
     async puloGravidade(){
-        const vY = this.habilitys.jump - this.physics.gravity
+        const rotationForce = 0.05;
+        const limitRotation = 0.8
+
+        this.habilitys.vY += this.physics.gravity;
+        this.habilitys.vY -= this.habilitys.jump;
+
+        this.habilitys.vY = this.habilitys.maxVy<this.habilitys.vY ? this.habilitys.maxVy : this.habilitys.vY
+        
+        this.habilitys.vY = -this.habilitys.maxVy>this.habilitys.vY ? -this.habilitys.maxVy : this.habilitys.vY
+        
+
+        if(this.player.rotation>limitRotation){
+            this.player.rotation = limitRotation
+        }
+        if(this.player.rotation<-limitRotation){
+            this.player.rotation = -limitRotation
+        }
+        
+        if(this.habilitys.vY>0){
+            this.player.rotation+=rotationForce
+        }
+        else{
+            this.player.rotation-=rotationForce
+
+        }
+
+ 
+        if(this.habilitys.isDead){
+            this.player.y += this.physics.gravity*3;
+            return
+        }
+
 
         if(this.habilitys.jump>0){
-            this.habilitys.jump-=this.physics.gravity
-            if(this.habilitys.jump<0) this.habilitys.jump=0           
+            this.habilitys.jump-=this.physics.gravity/2;
+            if(this.habilitys.jump<0) this.habilitys.jump=0; 
         }
-            this.player.y -= vY;
+        this.player.y += this.habilitys.vY;
+        
+
     }
 
     //Keys
@@ -300,8 +403,7 @@ export class Game{
     }
     
     keyUpActions(){
-        //Pulo
-        this.habilitys.jump=20
+
     }
     
     keyRightRelease(){
@@ -311,9 +413,22 @@ export class Game{
     }
     
     keyUpRelease () {
-        this.habilitys.jump=0
+                //Pulo
+                if(!this.game.keyDelay.fly){
+                    return
+                }
+                this.habilitys.jump=this.habilitys.jumpMax
+                Sound.sound.play('flap');
+                this.game.keyDelay.fly=false
+                setTimeout(()=>{
+                    this.game.keyDelay.fly=true
+                },180)
     }
 
 
+    randomIntFromInterval(min:number, max:number) {  
+        return Math.random() * (max - min + 1) + min;
+    }
+      
 }
 
