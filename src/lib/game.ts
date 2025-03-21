@@ -99,6 +99,7 @@ export class Game{
         this.player.x = this.app.screen.width/2 - this.player.width/2
         this.player.y = this.app.screen.height/2-200
         this.habilitys.isDead=false
+        this.habilitys.score=0
         this.terrenoParallaxGen()
     }
 
