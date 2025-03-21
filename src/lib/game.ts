@@ -24,7 +24,7 @@ export class Game{
 
 
     physics = {
-        gravity:0.4,
+        gravity:0.45,
     }
     
     game = {
@@ -40,11 +40,13 @@ export class Game{
         jump: 0,
         isDead:false,
         score:0,
-        jumpMax:3,
-        vX:2,
+        jumpMax:3.1,
+        vX:2.5,
         maxVx:4,
         vY:0,
-        maxVy:4
+        maxVy:6,
+        slowPower:false,
+        starPower:false
     }
     
 
@@ -66,6 +68,11 @@ export class Game{
         await this.gerarMenus()
         await this.terrenoParallaxGen()
         await this.pipesGen()
+
+        //Score
+        const texto = this.assetGenerator.gerarScoreLayer()
+        this.world.addChild(texto)
+        this.stageScore.attach(texto)
 
     }
 
@@ -154,18 +161,19 @@ export class Game{
 
         let canos = this.stagePipes.renderLayerChildren.filter((obj)=>obj.label=="cano")
         const tmp = this.stageScene.renderLayerChildren.find(obj=>obj.label==="terreno")
-        let alturaTerreno = tmp ? tmp.height : 0;
-
+        
         while(canos.length<totalCanos){
             
-            const limiteVariacaoSubida = 400
+            const limiteVariacaoSubida = 200
             const ultimoCano = canos[canos.length-1]
-            const gap = this.randomIntFromInterval(230,280)
-            const variacaoGapCano = this.randomIntFromInterval(180,250)
+            const gap = this.randomIntFromInterval(350,400)
+            const variacaoGapCano = this.randomIntFromInterval(175,210)
             const variacaoSubidaCano = this.randomIntFromInterval(80,limiteVariacaoSubida)
             const canoCima = await this.assetGenerator.gerarCano()
             const canoBaixo = await this.assetGenerator.gerarCano()
-
+            const powerSlow = await this.assetGenerator.gerarSlowPower()
+            
+            
 
             const xPos = ultimoCano ? ultimoCano.x + gap :  this.app.screen.width
 
@@ -179,11 +187,19 @@ export class Game{
             canoBaixo.y= variacaoSubidaCano + variacaoGapCano
             canoBaixo.x = xPos
 
-            const hitbox = new PIXI.Graphics().rect(0,0,widthCano/2,variacaoGapCano+canoCima.height).fill("transparent")
-            
-            hitbox.x = canoBaixo.x+widthCano/4
-            hitbox.y = canoCima.height
+            const hitbox = new PIXI.Graphics().rect(0,0,widthCano/2,variacaoGapCano+canoCima.height).fill("transparent")            
+            hitbox.x = canoBaixo.x - hitbox.width/2
+            hitbox.y = 100
+            hitbox.label="scoreBox"
 
+            const poderAgora = Math.random()*50
+            if(poderAgora>46){
+                powerSlow.x = canoBaixo.x  + gap/2
+                powerSlow.y = canoBaixo.y -  60
+                this.world.addChild(powerSlow)
+                this.stagePipes.attach(powerSlow)    
+            }
+            
             this.world.addChild(hitbox)
             this.stagePipes.attach(hitbox)
         
@@ -241,15 +257,17 @@ export class Game{
 
     async init(){
         
-        await this.app.init({ background: '#1099bb', width:800, height: 800 });
+        const canvaDiv = document.querySelector(".game") as HTMLElement
         
-        const canvaDiv = document.querySelector(".game")
+        await this.app.init({ background: '#1099bb',resizeTo:canvaDiv});
+        
         canvaDiv!.appendChild(this.app.canvas);
 
         Sound.sound.add('flap', '/sons/flap.mp3');
         Sound.sound.add('hit', '/sons/hit.mp3');
         Sound.sound.add('die', '/sons/die.mp3');
 
+        Sound.sound.add('point','/sons/point.mp3');
         
         this.player = await this.assetGenerator.gerarPersonagem()
         this.resetarPlayer()        
@@ -301,17 +319,26 @@ export class Game{
 
     movimento(){
        
-        const limitVx = 4
-        const increaseSpeed = 0.00009
+        const increaseSpeed = 0.0001
         this.game.currentTime+=this.ticker.elapsedMS*increaseSpeed
        
-        const velocidade = 2+(this.game.currentTime) > limitVx ? limitVx : 2+(this.game.currentTime)
-       
-        this.player.x+=velocidade
+        if(this.habilitys.slowPower){
+
+            this.player.x+=1.7
+
+
+        }
+        else{
+
+            const velocidade = this.habilitys.vX+(this.game.currentTime) > this.habilitys.maxVx ? this.habilitys.maxVx  : this.habilitys.vX+(this.game.currentTime)       
+            this.player.x+=velocidade
+                
+        }
        
         this.world.x = -(this.player.x - this.app.screen.width/2)
-
-
+        const texto = this.stageScore.renderLayerChildren[0] as PIXI.Text
+        texto.x = -this.world.x +20
+        texto.text = "Score: "+this.habilitys.score
     }
 
     async checarColisoes(){
@@ -334,9 +361,21 @@ export class Game{
                 yP + hP > yO &&    // Base do player passa o topo do objeto
                 yP < yO + hO) {    // Topo do player antes da base do objeto
                 
-                
+
+                if(obj.label==="powerSlow"){
+                    this.habilitys.slowPower=true
+                    setTimeout(()=>{
+                        this.habilitys.slowPower=false
+                    },2000)
+                }
+
+                if(obj.label==="powerSuper"){
+                    this.habilitys.score+=5
+                }
+
                 if (obj.label === "cano" || obj.label==="terreno") {
                     this.habilitys.isDead=true
+                    this.game.currentTime=0
                     Sound.sound.play('hit');
                     setTimeout(()=>{
 
@@ -348,7 +387,9 @@ export class Game{
                 }
                 
                 if(obj.label==="scoreBox"){
-                    this.habilitys.score++
+
+                    Sound.sound.play('point');
+                    this.habilitys.score +=1
                     this.world.removeChild(obj)
                     return
                 }
@@ -362,6 +403,8 @@ export class Game{
     async puloGravidade(){
         const rotationForce = 0.05;
         const limitRotation = 0.8
+
+
 
         this.habilitys.vY += this.physics.gravity;
         this.habilitys.vY -= this.habilitys.jump;

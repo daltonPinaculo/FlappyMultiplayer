@@ -46,9 +46,9 @@
 
 <svelte:document onkeydown={keyDownEvent} onkeyup={keyUpEvent}/>
 
-<div class="flex flex-col gap-5 items-center justify-center text-amber-50 w-full h-full bg-slate-950">
+<div class="flex flex-col  items-center justify-center text-amber-50 w-full h-full bg-slate-950">
     <h1 class="text-3xl mb-2">GAME OF THE YEAR 2025</h1>
-    <div class="game border-[16px] overflow-hidden rounded-lg border-amber-100">
+    <div class="game border-[16px] h-[600px] w-[80%] overflow-hidden rounded-lg border-amber-100">
 
     </div>
     

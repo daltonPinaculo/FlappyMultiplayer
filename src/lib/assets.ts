@@ -18,11 +18,26 @@ export class Assets{
 
         const texture = await PIXI.Assets.load('/bird.png');
         const sprite = new PIXI.Sprite(texture)
-        sprite.scale.set(2,2)
+        sprite.scale.set(1.4,1.4)
         return sprite
 
     }
 
+    async gerarSlowPower():Promise<PIXI.Sprite>{
+        const texture = await PIXI.Assets.load('/bird.png');
+        const sprite = new PIXI.Sprite(texture)
+        sprite.scale.set(3,3)
+        sprite.label="powerSlow"
+        return sprite
+    }
+
+    async gerarSuperPower():Promise<PIXI.Sprite>{
+        const texture = await PIXI.Assets.load('/bird.png');
+        const sprite = new PIXI.Sprite(texture)
+        sprite.scale.set(3,3)
+        sprite.label="powerSuper"
+        return sprite
+    }
 
 
     async gerarTerreno():Promise<PIXI.Sprite>{
@@ -44,6 +59,15 @@ export class Assets{
 
         return sprite
     }
+
+    gerarScoreLayer():PIXI.Text{
+        const titulo = this.gerarTexto("Score: 0",32,"white")
+        titulo.label="scoreText"
+        titulo.x = 20
+        titulo.y = 20
+        return titulo
+    }
+
 
     gerarMenuInicial():{
         fundo:PIXI.Graphics,
