@@ -1,3 +1,10 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+* {
+    font-family: "VT323", monospace;
+    font-weight: 400;
+    font-style: normal;
+ }
+  

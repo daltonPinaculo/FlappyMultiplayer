@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { Game } from '$lib/game';
+	import { Game } from '$lib/game.svelte';
 	import { io } from 'socket.io-client';
 	import { onMount } from 'svelte';
+	import StartMenu from '../components/StartMenu.svelte';
+	import infoUser from '$lib/front.svelte';
 
     let game:Game
 
@@ -48,8 +50,13 @@
 
 <div class="flex flex-col  items-center justify-center text-amber-50 w-full h-full bg-slate-950">
     <h1 class="text-3xl mb-2">GAME OF THE YEAR 2025</h1>
-    <div class="game border-[16px] h-[600px] w-[80%] overflow-hidden rounded-lg border-amber-100">
 
+    <div class="game border-[16px] h-[600px] w-[80%] overflow-hidden rounded-lg border-amber-100 relative">
+        {#if infoUser.info.freezeGame}
+            <div class="absolute top-0 left-0 w-full h-full">
+                <StartMenu/>
+            </div>
+        {/if}
     </div>
     
 </div>

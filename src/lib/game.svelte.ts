@@ -1,18 +1,19 @@
 import * as PIXI from 'pixi.js';
 import { Assets } from './assets';
 import * as Sound from '@pixi/sound';
+import { io } from 'socket.io-client';
+import { Player } from './player';
+import infoUser from './front.svelte';
 
 export class Game{
     
     app: PIXI.Application = new PIXI.Application()
-
     stageScene:PIXI.IRenderLayer = new PIXI.RenderLayer() //Cenario de fundo
     stagePipes:PIXI.IRenderLayer = new PIXI.RenderLayer() //Os cano
     stagePlayer:PIXI.IRenderLayer = new PIXI.RenderLayer() //Jogador principal
     stageGhostPlayers:PIXI.IRenderLayer = new PIXI.RenderLayer() //Jogadores fantasmas
     stageGUIStart:PIXI.IRenderLayer = new PIXI.RenderLayer() //Colocar texto,botoes,etc
     stageGUIBoard:PIXI.IRenderLayer = new PIXI.RenderLayer() //Colocar texto,botoes,etc
-    
     stageScore : PIXI.IRenderLayer = new PIXI.RenderLayer()
     ticker: PIXI.Ticker = new PIXI.Ticker
     player:PIXI.Sprite = new PIXI.Sprite(undefined);
@@ -22,9 +23,10 @@ export class Game{
         height:720
     })
 
+    jogadores:Player[] = []
 
     physics = {
-        gravity:0.45,
+        gravity:0.62,
     }
     
     game = {
@@ -44,14 +46,21 @@ export class Game{
         vX:2.5,
         maxVx:4,
         vY:0,
-        maxVy:6,
+        maxVy:5.5,
         slowPower:false,
         starPower:false
     }
     
+    dadosJogador:{
+        nome:string,
+        id:number
+    } | null = null 
+    
+    socketConnection = io()
 
     constructor(){
         this.init()
+
     }
 
     async cenarioInit(){
@@ -63,9 +72,9 @@ export class Game{
         this.world.addChild(this.stageScene)
         this.world.addChild(this.stagePlayer)
         this.world.addChild(this.stageScore)
+        this.world.addChild(this.stageGhostPlayers)
         this.world.addChild(this.stageGUIBoard)
         this.world.addChild(this.stageGUIStart)
-        await this.gerarMenus()
         await this.terrenoParallaxGen()
         await this.pipesGen()
 
@@ -74,25 +83,6 @@ export class Game{
         this.world.addChild(texto)
         this.stageScore.attach(texto)
 
-    }
-
-    async gerarMenus(){
-        const objetos = this.assetGenerator.gerarMenuInicial()
-
-        this.world.addChild(objetos.fundo)
-        this.world.addChild(objetos.botao)
-        this.world.addChild(objetos.titulo)
-        this.stageGUIStart.attach(objetos.fundo)
-        this.stageGUIStart.attach(objetos.botao)
-        this.stageGUIStart.attach(objetos.titulo)
-        this.mostrarMenuPrincipal()
-    
-    }
-
-    async esconderMenuPrincipal(){
-        this.stageGUIStart.renderLayerChildren.forEach((obj)=>{
-            obj.visible=false
-        })
     }
 
     async resetarPlayer(){
@@ -114,45 +104,6 @@ export class Game{
      
     }
 
-    async mostrarMenuPrincipal(){
-
-        const childrens = this.stageGUIStart.renderLayerChildren
-        const bounds = this.world.position
-        const btnStart = childrens.find((obj)=>obj.label==="btnStart");
-        const fundo = childrens.find((obj)=>obj.label==="fundo");
-        const titulo = childrens.find((obj)=>obj.label==="titulo");
-        
-        
-        if(btnStart){
-            btnStart.x = this.app.screen.width/2 - childrens[1].width/2 - bounds.x
-            btnStart.removeAllListeners()
-            btnStart.eventMode = 'static';
-            btnStart.cursor = 'pointer';
-            btnStart.on("pointerdown",()=>{
-                this.esconderMenuPrincipal()
-                this.resetarPlayer()
-                this.resetarCenario()
-                this.game.start=true
-            })
-    
-        }
-
-        if(fundo){
-            fundo.x=-bounds.x
-        }
-
-        if(titulo){
-            titulo.y=150
-            titulo.x=  this.app.screen.width/2 - titulo.width/2-bounds.x
-        }
-
-
-        childrens.forEach((obj)=>{
-            obj.visible=true
-        })
-
-        
-    }
 
 
     async pipesGen(){
@@ -271,21 +222,45 @@ export class Game{
         Sound.sound.add('point','/sons/point.mp3');
         
         this.player = await this.assetGenerator.gerarPersonagem()
+        this.dadosJogador = {
+            nome:"Flappyzinho",
+            id:2
+        }
+        this.socketConnection.emit("entrarNovoJogador",{
+            nome:this.dadosJogador.nome,
+            id: this.dadosJogador.id
+        })
+    
+        this.sock()
+    
         this.resetarPlayer()        
         await this.cenarioInit()
 
         this.app.ticker.add(async(t) => {        
             this.ticker = t
+            await this.guiMan()
             await this.gameLoop()
+            
+            $effect.root(()=>{
+                if(infoUser.info.freezeGame===false){
+                    this.game.start=true
+                }                
+            })
+
         })    
 
 
     }
 
+    async guiMan(){
+        if(infoUser.info.freezeGame===false){
+            this.game.start=true
+        }
+    }
+
     async gameLoop(){
-     
-        this.guiController()
-        
+             
+        this.outrosJogadoers()
         if(!this.habilitys.isDead && this.game.start){
             this.movimento()
             await this.terrenoParallaxGen()
@@ -296,29 +271,38 @@ export class Game{
         if(this.game.start){
             this.puloGravidade()
         }        
+
+        this.socketConnection.emit("jogadorMoveu",{x:this.player.x,y:this.player.y,id:this.dadosJogador!.id})
+    }
+
+    outrosJogadoers(){
+        this.procurarJogadores()
+
+   }
+
+   sock(){
+        this.socketConnection.on("novoJogador",(dados)=>{
+            if(dados.id!==this.dadosJogador!.id){
+                this.jogadores.push(new Player(this.assetGenerator,this.world,this.stageGhostPlayers,dados))
+            }
+        })
+        this.socketConnection.on("atualizarCoordenadas",(dados)=>{
+                this.jogadores.filter((obj)=>{
+                    console.log(dados,obj)
+
+                    if(obj.player?.id===dados.id){
+                        obj.atualizarMovimento(dados.x,dados.y)
+                    }
+                })
+        })
+
+   }
+
+   procurarJogadores(){
     }
 
 
-    async guiController(){
-
-        if(!this.game.start){
-            this.startMenu()
-        }
-        if(this.game.menu){
-            this.scoreMenu()
-        }
-    }
-
-    async startMenu(){
-
-    }
-
-    async scoreMenu(){
-
-    }
-
-
-    movimento(){
+   movimento(){
        
         const increaseSpeed = 0.0001
         this.game.currentTime+=this.ticker.elapsedMS*increaseSpeed
@@ -383,7 +367,7 @@ export class Game{
                         Sound.sound.play('die');
                     },500)
                     setTimeout(()=>{
-                        this.mostrarMenuPrincipal()
+                        infoUser.info.freezeGame=true
                     },1000)
                 }
                 
@@ -402,7 +386,7 @@ export class Game{
 
 
     async puloGravidade(){
-        const rotationForce = 0.05;
+        const rotationForce = 0.09;
         const limitRotation = 0.8
 
 
@@ -473,7 +457,7 @@ export class Game{
                 this.game.keyDelay.fly=false
                 setTimeout(()=>{
                     this.game.keyDelay.fly=true
-                },180)
+                },2)
     }
 
 

@@ -22,6 +22,7 @@
 		"@tailwindcss/forms": "^0.5.9",
 		"@tailwindcss/typography": "^0.5.15",
 		"@tailwindcss/vite": "^4.0.0",
+		"@types/bcrypt": "^5.0.2",
 		"eslint": "^9.18.0",
 		"eslint-config-prettier": "^10.0.1",
 		"eslint-plugin-svelte": "^3.0.0",
@@ -37,7 +38,16 @@
 	},
 	"dependencies": {
 		"@pixi/sound": "^6.0.1",
+		"@prisma/client": "^6.5.0",
+		"@types/express": "^5.0.1",
+		"@types/pg": "^8.11.11",
+		"axios": "^1.8.4",
+		"bcrypt": "^5.1.1",
+		"express": "^4.21.2",
+		"pg": "^8.14.1",
 		"pixi.js": "^8.9.0",
+		"prisma": "^6.5.0",
+		"short-uuid": "^5.2.0",
 		"socket.io": "^4.8.1",
 		"socket.io-client": "^4.8.1"
 	}
