@@ -6,6 +6,8 @@
 	import Button from "./Button.svelte";
 	import ButtonArrow from "./ButtonArrow.svelte";
 
+    let {onLogin}:{onLogin:(r:{id:number,nome:string})=>void} = $props()
+
     let modo = $state<"login" | "cadastro" | "menu">("menu")
 
     let formCadastro = $state({
@@ -46,9 +48,10 @@
             return  alert("Parem de testar o sistema")
         }
         try{
-            await axios.post("/api/auth",formLogin)
+            const response = await axios.post("/api/auth",formLogin)
             modo="menu"
             infoUser.info.logado=true
+            onLogin(response.data.data)
         }
         catch(err){
             alert("Usuario/Senha incorretos")

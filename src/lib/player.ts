@@ -15,10 +15,10 @@ export class Player{
 
     player:{
         nome:string,
-        id:string
+        id:number
     } | null = null
 
-    constructor(assetsGen:Assets,word:PIXI.Container,layer:PIXI.IRenderLayer,player:{nome:string,id:string}){
+    constructor(assetsGen:Assets,word:PIXI.Container,layer:PIXI.IRenderLayer,player:{nome:string,id:number}){
         this.player = player
         this.assetsGen = assetsGen
         assetsGen.gerarPersonagem().then(result=>{
@@ -31,6 +31,7 @@ export class Player{
 
     atualizarMovimento(x:number,y:number){
         if(this.sprite===null) return
+        
         this.sprite.x=x;
         this.sprite.y=y;
     }

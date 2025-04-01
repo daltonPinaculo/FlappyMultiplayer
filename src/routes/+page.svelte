@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { Game } from '$lib/game.svelte';
 	import { io } from 'socket.io-client';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import StartMenu from '../components/StartMenu.svelte';
 	import infoUser from '$lib/front.svelte';
 
     let game:Game
 
     function keyUpEvent(e:KeyboardEvent){
-        if(e.key==="ArrowUp" || "Space"){
+        if(e.key==="ArrowUp" || e.key===" "){
             game.keyUpRelease()
         }
         if(e.key==="ArrowLeft"){
@@ -35,12 +35,23 @@
 
     }
 
+    function desconectar(){
+        game.socketConnection.emit("desconectarJogador",{
+                id:game.dadosJogador ? game.dadosJogador.id : -1
+        })
+    }
 
 
 	onMount(() => {
         game = new Game()
-
+        return () => {
+            desconectar()
+        }
     });
+
+    onDestroy(()=>{
+        desconectar()
+    })
 
 
 
@@ -54,7 +65,16 @@
     <div class="game border-[16px] h-[600px] w-[80%] overflow-hidden rounded-lg border-amber-100 relative">
         {#if infoUser.info.freezeGame}
             <div class="absolute top-0 left-0 w-full h-full">
-                <StartMenu/>
+                <StartMenu onLogin={(r)=>{
+                    game.dadosJogador={
+                        id:r.id,
+                        nome:r.nome
+                    }
+                    game.socketConnection.emit("entrarNovoJogador",{
+                        nome:game.dadosJogador.nome,
+                        id: game.dadosJogador.id
+                    })
+                }}/>
             </div>
         {/if}
     </div>

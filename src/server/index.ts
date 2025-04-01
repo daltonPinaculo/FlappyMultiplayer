@@ -1,6 +1,7 @@
 import { Server } from "socket.io"
 import type { ViteDevServer } from "vite"
 import { prisma } from "./prisma"
+import memory from "./memory"
 
 export const webSocketServer = {
 	name: 'webSocketServer',
@@ -9,34 +10,47 @@ export const webSocketServer = {
 	
         if (!server.httpServer) return
 
-        let players:{nome:string,id:number}[]= []
-
         const io = new Server(server.httpServer)
 
 		io.on('connection', (socket) => {
 
             socket.on('jogadorMoveu', (dados:{x:number,y:number,id:number}) => {
                 socket.emit("atualizarCoordenadas",dados)
-
             })
+
 
             socket.on('desconectarJogador', (dados:{id:number}) => {    
-                players = players.filter(obj=>obj.id!==dados.id)
+                console.log("DESCONECAÇ~SD")
+                memory.players = memory.players.filter(obj=>obj.id!==dados.id)
+                console.log(memory.players)
             })
-            socket.on('atualizarPontuacao', (dados:{id:number,score:number}) => {
-                prisma.usuario.update({
-                    where:{
-                        id:dados.id
-                    },
-                    data:{
-                        pontuacao:dados.score
-                    }
-                })
+
+            socket.on('atualizarPontuacao', async(dados:{id:number,score:number}) => {
+                const usuario = await prisma.usuario.findUnique({where:{
+                    id:dados.id
+                }})
+                if(!usuario) return
+
+                if(usuario.pontuacao<dados.score){
+                    const usuarioUpdate = await prisma.usuario.update({
+                        where:{
+                            id:dados.id
+                        },
+                        data:{
+                            pontuacao:dados.score
+                        }
+                    })    
+                }
             })
 
             socket.on('entrarNovoJogador', (dados:{nome:string,id:number}) => {
-                players.push(dados)
+                memory.players = [...memory.players.filter(p => p.id !== dados.id), dados];
+                console.log(memory.players)
+                socket.emit("listaJogadoresAtualizada",memory.players)
             })
+            setInterval(()=>{
+                 socket.emit("listaJogadoresAtualizada",memory.players)
+            },2500)
 
 
 

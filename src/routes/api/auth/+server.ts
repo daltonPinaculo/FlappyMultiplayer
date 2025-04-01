@@ -33,6 +33,7 @@ export async function POST(event) {
     message:"Usuário logado com sucesso",
     data:{
         id:usuario.id,
+        nome:usuario.nome
     }
   },{status:200})
 

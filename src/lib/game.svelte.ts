@@ -218,21 +218,10 @@ export class Game{
         Sound.sound.add('flap', '/sons/flap.mp3');
         Sound.sound.add('hit', '/sons/hit.mp3');
         Sound.sound.add('die', '/sons/die.mp3');
-
         Sound.sound.add('point','/sons/point.mp3');
         
-        this.player = await this.assetGenerator.gerarPersonagem()
-        this.dadosJogador = {
-            nome:"Flappyzinho",
-            id:2
-        }
-        this.socketConnection.emit("entrarNovoJogador",{
-            nome:this.dadosJogador.nome,
-            id: this.dadosJogador.id
-        })
-    
+        this.player = await this.assetGenerator.gerarPersonagem()    
         this.sock()
-    
         this.resetarPlayer()        
         await this.cenarioInit()
 
@@ -240,16 +229,7 @@ export class Game{
             this.ticker = t
             await this.guiMan()
             await this.gameLoop()
-            
-            $effect.root(()=>{
-                if(infoUser.info.freezeGame===false){
-                    this.game.start=true
-                }                
-            })
-
         })    
-
-
     }
 
     async guiMan(){
@@ -259,48 +239,56 @@ export class Game{
     }
 
     async gameLoop(){
-             
-        this.outrosJogadoers()
-        if(!this.habilitys.isDead && this.game.start){
-            this.movimento()
-            await this.terrenoParallaxGen()
-            await this.pipesGen()
-            await this.checarColisoes()
+            
+        if(infoUser.info.freezeGame===false){
+            if(!this.habilitys.isDead && this.game.start){
+                this.movimento()
+                await this.terrenoParallaxGen()
+                await this.pipesGen()
+                await this.checarColisoes()
+            }
+            
+            if(this.game.start){
+                this.puloGravidade()
+                this.socketConnection.emit("jogadorMoveu",{x:this.player.x,y:this.player.y,id:this.dadosJogador!.id})
+            }        
         }
-        
-        if(this.game.start){
-            this.puloGravidade()
-        }        
 
-        this.socketConnection.emit("jogadorMoveu",{x:this.player.x,y:this.player.y,id:this.dadosJogador!.id})
     }
 
-    outrosJogadoers(){
-        this.procurarJogadores()
+    sock(){
 
-   }
+        this.socketConnection.on("listaJogadoresAtualizada",(dados:{nome:string,id:number}[])=>{
+            for(const dado of dados){
+                if(dado.id===this.dadosJogador!.id) continue
 
-   sock(){
-        this.socketConnection.on("novoJogador",(dados)=>{
-            if(dados.id!==this.dadosJogador!.id){
-                this.jogadores.push(new Player(this.assetGenerator,this.world,this.stageGhostPlayers,dados))
+                if(!this.jogadores.some(obj=>obj.player!.id===dado.id)){
+                    alert("Novo jogador entrou")
+                    const novoJogador = new Player(this.assetGenerator, this.world, this.stageGhostPlayers, dado)
+                    this.jogadores.push(novoJogador);
+                }
             }
+
+            //Remover jogadores que sairão da partida 
+            this.jogadores = this.jogadores.filter((obj)=>{
+                if(!dados.some(obj2=>obj2.id===obj.player!.id)){
+                    obj.destroy()
+                    return false
+                }
+                return true
+            })
+            console.log(this.jogadores)
         })
         this.socketConnection.on("atualizarCoordenadas",(dados)=>{
-                this.jogadores.filter((obj)=>{
-                    console.log(dados,obj)
-
-                    if(obj.player?.id===dados.id){
+                this.jogadores.forEach((obj)=>{
+                    console.log(obj.player?.id,dados.id)
+                    if(obj.player!.id===dados.id){
                         obj.atualizarMovimento(dados.x,dados.y)
                     }
                 })
         })
 
    }
-
-   procurarJogadores(){
-    }
-
 
    movimento(){
        
@@ -362,12 +350,14 @@ export class Game{
                     this.habilitys.isDead=true
                     this.game.currentTime=0
                     Sound.sound.play('hit');
+                    this.socketConnection.emit("atualizarPontuacao",{id:this.dadosJogador?.id,score:this.habilitys.score})
                     setTimeout(()=>{
-
                         Sound.sound.play('die');
                     },500)
                     setTimeout(()=>{
                         infoUser.info.freezeGame=true
+                        this.resetarPlayer()
+                        this.resetarCenario()
                     },1000)
                 }
                 
@@ -449,7 +439,7 @@ export class Game{
     
     keyUpRelease () {
                 //Pulo
-                if(!this.game.keyDelay.fly || this.habilitys.isDead){
+                if(!this.game.keyDelay.fly || this.habilitys.isDead || !this.game.start){
                     return
                 }
                 this.habilitys.jump=this.habilitys.jumpMax
