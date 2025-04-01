@@ -257,7 +257,11 @@ export class Game{
     }
 
     sock(){
+        this.socketConnection.on("connect_error", (err) => {
+            // the reason of the error, for example "xhr poll error"
+            console.log(err);
 
+        });
         this.socketConnection.on("listaJogadoresAtualizada",(dados:{nome:string,id:number}[])=>{
             for(const dado of dados){
                 if(dado.id===this.dadosJogador!.id) continue
