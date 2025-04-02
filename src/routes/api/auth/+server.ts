@@ -17,6 +17,7 @@ export async function POST(event) {
     }
   })
 
+  console.log(usuario?.id,"aaa")
   if(!usuario){
     return json({
         message:"Usuário não encontrado no sistema"
