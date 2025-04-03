@@ -72,7 +72,7 @@
         </div>
     
     </div>
-    <div class="absolute right-0">
+    <div class="absolute bottom-0">
         <Board/>
 
     </div>

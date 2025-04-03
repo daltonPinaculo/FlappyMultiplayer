@@ -8,8 +8,13 @@
     let scores = $state<{id:number,nome:string,pontuacao:number}[]>([])
 
     async function listar(){
-        const response = await axios.get(PUBLIC_BACKEND_COMPLETE_URL+"/scoreboard");
-        scores = response.data.data
+        try{
+            const response = await axios.get(PUBLIC_BACKEND_COMPLETE_URL+"/scoreboard");
+            scores = response.data.data
+        }
+        catch(err){
+            
+        }
     }
 
     let idInterval:NodeJS.Timeout
@@ -32,7 +37,7 @@
                    tracking-wider drop-shadow-[2px_2px_0px_rgba(255,255,255,1)]">
             Leaderboard
         </h1>
-        
+
         <div class="space-y-4">
             {#each scores as score,index (score.id)}
                 <div class="flex items-center bg-white rounded-2xl p-4 border-4 
