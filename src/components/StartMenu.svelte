@@ -1,14 +1,24 @@
 <script lang="ts">
 	import infoUser from "$lib/front.svelte";
-	import axios from "axios";
+	import axios, { AxiosError } from "axios";
 
 
 	import Button from "./Button.svelte";
 	import ButtonArrow from "./ButtonArrow.svelte";
+	import { PUBLIC_BACKEND_COMPLETE_URL, PUBLIC_BACKEND_URL } from "$env/static/public";
+	import toast from "$lib/utils/toast.svelte";
+	import SvgCheck from "./svg/SvgCheck.svelte";
 
     let {onLogin}:{onLogin:(r:{id:number,nome:string})=>void} = $props()
 
-    let modo = $state<"login" | "cadastro" | "menu">("menu")
+    let modo = $state<"login" | "cadastro" | "menu" | "skin">("login")
+
+    const skins = [
+        {
+            value:"base",
+            icon:"/bird.png"
+        }
+    ]
 
     let formCadastro = $state({
         nome:"",
@@ -28,13 +38,12 @@
             return  alert("Parem de testar o sistema")
         }
         try{
-            await axios.post("/api/cadastro",formCadastro)
+            await axios.post(PUBLIC_BACKEND_COMPLETE_URL+"/auth/cadastro",formCadastro)
             modo="menu"
-            alert("Pode logar agora")
         }
         catch(err){
-            console.log(err)
-            alert("Usuário com esse nick já existe")
+            const error = err as any
+            toast.error("Notificação do sistema",error.response.data.message)
 
         }
     }
@@ -48,13 +57,14 @@
             return  alert("Parem de testar o sistema")
         }
         try{
-            const response = await axios.post("/api/auth",formLogin)
+            const response = await axios.post(PUBLIC_BACKEND_COMPLETE_URL+"/auth/login",formLogin)
             modo="menu"
             infoUser.info.logado=true
             onLogin(response.data.data)
         }
         catch(err){
-            alert("Usuario/Senha incorretos")
+            const error = err as any
+            toast.error("Notificação do sistema",error.response.data.message)
         }
     }
 </script>
@@ -76,11 +86,17 @@
     <div class="flex flex-col gap-4">
     
         {#if modo==="menu"}
+        
         {#if infoUser.info.logado}
 
-        <Button onClick={()=>            infoUser.info.freezeGame=false}> 
-            Play
-        </Button>
+            <Button onClick={()=>infoUser.info.freezeGame=false}> 
+                Play
+            </Button>
+
+            <Button onClick={()=>modo="skin"}> 
+                Trocar Skin
+            </Button>
+
 
         {:else}
 
@@ -92,6 +108,25 @@
             </Button>
 
         {/if}
+        {:else if modo==="skin"}
+            <div class="grid grid-cols-3 gap-x-4">
+                {#each skins as skin}
+                    <button class="flex items-center justify-center group w-[120px] relative
+                    aspect-square rounded-lg hover:bg-amber-50 bg-emerald-300 border-4 border-black" onclick={()=>{}}>
+                        {#if skin.value===infoUser.info.skin}
+                            <div class="rounded-full absolute top-[-12px] right-[-10px] bg-black">
+                                <SvgCheck props={{
+                                    width:26,
+                                    height:26,
+                                    class:""
+                                }}/>    
+                            </div>
+                        {/if}
+                        <img src="/bird.png" class="group-hover:scale-[1.2] transition-all duration-200 w-[50px]" alt="">
+                    </button>
+                {/each}
+            </div>
+
         {:else if modo==="cadastro"}
 
             <div class="flex flex-col gap-3">

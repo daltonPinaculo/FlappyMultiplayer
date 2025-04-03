@@ -4,6 +4,7 @@ import * as Sound from '@pixi/sound';
 import { io } from 'socket.io-client';
 import { Player } from './player';
 import infoUser from './front.svelte';
+import { PUBLIC_BACKEND_URL } from '$env/static/public';
 
 export class Game{
     
@@ -56,7 +57,8 @@ export class Game{
         id:number
     } | null = null 
     
-    socketConnection = io()
+    socketConnection = new WebSocket("ws://"+PUBLIC_BACKEND_URL+"/upgrade")
+
 
     constructor(){
         this.init()
@@ -250,47 +252,81 @@ export class Game{
             
             if(this.game.start){
                 this.puloGravidade()
-                this.socketConnection.emit("jogadorMoveu",{x:this.player.x,y:this.player.y,id:this.dadosJogador!.id})
+
+                this.socketConnection.send(mensagemFormatada("atualizarPlayer",{
+                    coordenadas:{
+                        x: this.player.x,
+                        y: this.player.y,
+                        rotacao:this.player.rotation
+                    },
+                    id:this.dadosJogador!.id,
+                    nome:this.dadosJogador!.nome,
+                    pontuacao: this.habilitys.score
+                }))
             }        
         }
 
     }
 
     sock(){
-        this.socketConnection.on("connect_error", (err) => {
-            // the reason of the error, for example "xhr poll error"
-            console.log(err);
+        this.socketConnection.onmessage = (m) => {
 
-        });
-        this.socketConnection.on("listaJogadoresAtualizada",(dados:{nome:string,id:number}[])=>{
-            for(const dado of dados){
-                if(dado.id===this.dadosJogador!.id) continue
+            const conteudo = JSON.parse(m.data) as {tipo:string,conteudo:any}
+            console.log(conteudo)
 
-                if(!this.jogadores.some(obj=>obj.player!.id===dado.id)){
-                    alert("Novo jogador entrou")
-                    const novoJogador = new Player(this.assetGenerator, this.world, this.stageGhostPlayers, dado)
-                    this.jogadores.push(novoJogador);
-                }
+            if(conteudo.tipo==="conectado"){
+                
+
             }
 
-            //Remover jogadores que sairão da partida 
-            this.jogadores = this.jogadores.filter((obj)=>{
-                if(!dados.some(obj2=>obj2.id===obj.player!.id)){
-                    obj.destroy()
-                    return false
-                }
-                return true
-            })
-            console.log(this.jogadores)
-        })
-        this.socketConnection.on("atualizarCoordenadas",(dados)=>{
-                this.jogadores.forEach((obj)=>{
-                    console.log(obj.player?.id,dados.id)
-                    if(obj.player!.id===dados.id){
-                        obj.atualizarMovimento(dados.x,dados.y)
+            else if(conteudo.tipo==="listaAtualizada"){
+
+                const tmp = conteudo.conteudo as {
+                jogadores:{
+                    id:number,
+                    nome:string,
+                    coordenadas:{
+                        x:number,
+                        y:number,
+                        rotacao:number,
                     }
+                }[],
+                mensagem:string
+                }
+                const dados = tmp.jogadores
+                for(const dado of dados){
+                    if(dado.id===this.dadosJogador!.id) continue
+    
+                    if(!this.jogadores.some(obj=>obj.player!.id===dado.id)){
+                        const novoJogador = new Player(this.assetGenerator, this.world, this.stageGhostPlayers, dado)
+                        this.jogadores.push(novoJogador);
+                    }
+                }
+                
+                //Remover jogadores que sairão da partida 
+                this.jogadores = this.jogadores.filter((obj)=>{
+                    if(!dados.some(obj2=>obj2.id===obj.player!.id)){
+                        obj.destroy()
+                        return false
+                    }
+                    return true
                 })
-        })
+                console.log("Jogadores do cliente: ",this.jogadores)
+                
+                this.jogadores.forEach((obj)=>{
+                    dados.forEach(obj2=>{
+                        if(obj2.id===obj.player!.id){
+                            obj.atualizarMovimento(obj2.coordenadas.x,obj2.coordenadas.y,obj2.coordenadas.rotacao)
+                        }
+                    })
+                })
+
+
+            }
+
+
+
+        }
 
    }
 
@@ -354,7 +390,6 @@ export class Game{
                     this.habilitys.isDead=true
                     this.game.currentTime=0
                     Sound.sound.play('hit');
-                    this.socketConnection.emit("atualizarPontuacao",{id:this.dadosJogador?.id,score:this.habilitys.score})
                     setTimeout(()=>{
                         Sound.sound.play('die');
                     },500)
@@ -461,3 +496,12 @@ export class Game{
       
 }
 
+
+
+
+const mensagemFormatada = (tipo:string,conteudo:Record<string,any>) => {
+    return JSON.stringify({
+        tipo:tipo,
+        conteudo:conteudo
+    })
+}

@@ -1,5 +1,7 @@
-import adapter from '@sveltejs/adapter-node';
+import adapter from '@sveltejs/adapter-vercel';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import { resolve } from 'path';
+
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -8,7 +10,10 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	kit: {
-		adapter: adapter()
+		adapter: adapter(),
+		alias:{
+			$components: resolve('src/components'),
+		}
 	}
 };
 

@@ -2,34 +2,34 @@
 	import { io } from "socket.io-client";
 	import Button from "../../components/Button.svelte";
 	import StartMenu from "../../components/StartMenu.svelte";
+	import { PUBLIC_BACKEND_URL } from "$env/static/public";
+	import { onDestroy, onMount } from "svelte";
+   
+    const socket = new WebSocket("ws://"+PUBLIC_BACKEND_URL+"/upgrade")
 
-    let value = $state("")
-    let mensagens = $state<string[]>([])
-    const socket = io()
-
-    socket.on('receiveMessage', (message:string) => {
-        mensagens.push(message)
-    })
-
-    function enviarMensagem() {
-
-        socket.emit('sendMessage', value)
-        value = ""
-
+    socket.onopen = () => {
+        console.log("Sucesso ao entrar")
+        socket.send(JSON.stringify({
+            tipo:"conectar",
+            conteudo:{
+                coordenadas: {
+                    x:2,
+                    y:3
+                },
+                id:Math.floor(Math.random()*100),
+                nome:"Felps"
+            }
+        }))
     }
-    
+
+    socket.onmessage = (m) => {
+        const conteudo = JSON.parse(m.data)
+        console.log(conteudo)
+    }
+
+    socket.onclose = () => {
+        console.log("Sucesso ao fechar")
+    }
+
 </script>
 
-
-<div class="w-screen h-screen grid grid-cols-2">
-    <StartMenu/>
-    <div class="flex flex-col justify-center items-center w-full h-full bg-[rgba(0,0,0,.1)]">
-
-        <h1 class="text-[40px] font-medium">
-            Cadastro
-        </h1>    
-    
-        <input type="text">
-    
-    </div>
-</div>

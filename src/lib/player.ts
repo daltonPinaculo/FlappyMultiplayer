@@ -29,12 +29,15 @@ export class Player{
         })
     }
 
-    atualizarMovimento(x:number,y:number){
+    atualizarMovimento(x:number,y:number,rotacao:number){
         if(this.sprite===null) return
         
         this.sprite.x=x;
         this.sprite.y=y;
+        this.sprite.rotation = rotacao
+        
     }
+
 
     destroy(){
         if(this.sprite)

@@ -4,6 +4,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import StartMenu from '../components/StartMenu.svelte';
 	import infoUser from '$lib/front.svelte';
+	import Board from '$components/Board.svelte';
 
     let game:Game
 
@@ -35,48 +36,45 @@
 
     }
 
-    function desconectar(){
-        game.socketConnection.emit("desconectarJogador",{
-                id:game.dadosJogador ? game.dadosJogador.id : -1
-        })
-    }
-
-
 	onMount(() => {
         game = new Game()
-        return () => {
-            desconectar()
-        }
     });
-
-    onDestroy(()=>{
-        desconectar()
-    })
-
-
 
 </script>
 
 <svelte:document onkeydown={keyDownEvent} onkeyup={keyUpEvent}/>
 
-<div class="flex flex-col  items-center justify-center text-amber-50 w-full h-full bg-slate-950">
-    <h1 class="text-3xl mb-2">GAME OF THE YEAR 2025</h1>
+<div class="flex  items-center justify-center text-amber-50 w-full h-full bg-slate-950">
 
-    <div class="game border-[16px] h-[600px] w-[80%] overflow-hidden rounded-lg border-amber-100 relative">
-        {#if infoUser.info.freezeGame}
-            <div class="absolute top-0 left-0 w-full h-full">
-                <StartMenu onLogin={(r)=>{
-                    game.dadosJogador={
-                        id:r.id,
-                        nome:r.nome
-                    }
-                    game.socketConnection.emit("entrarNovoJogador",{
-                        nome:game.dadosJogador.nome,
-                        id: game.dadosJogador.id
-                    })
-                }}/>
-            </div>
-        {/if}
+    <div class="flex flex-col items-center">
+        <div class="game border-[16px] h-[600px] w-full overflow-hidden rounded-lg border-amber-100 relative">
+            {#if infoUser.info.freezeGame}
+                <div class="absolute top-0 left-0 w-full h-full">
+                    <StartMenu onLogin={(r)=>{
+                        game.dadosJogador={
+                            id:r.id,
+                            nome:r.nome
+                        }
+                        game.socketConnection.send(JSON.stringify({
+                            tipo:"conectar",
+                            conteudo:{
+                                nome:game.dadosJogador.nome,
+                                id: game.dadosJogador.id,
+                                coordenadas:{
+                                    x:0,
+                                    y:0
+                                }
+                            }
+                        }))
+                    }}/>
+                </div>
+            {/if}
+        </div>
+    
+    </div>
+    <div class="absolute right-0">
+        <Board/>
+
     </div>
     
 </div>

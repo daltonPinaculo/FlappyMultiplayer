@@ -10,8 +10,20 @@
 
 
 
-<button class="bg-[url('/gui/button.png')] bg-no-repeat bg-cover relative w-[300px] h-[66px] text-[32px] cursor-pointer text-white" onclick={onClick}>
+<button class="gradient relative w-[300px] h-[50px] flex items-center justify-center rounded-lg leading-1 text-[32px] cursor-pointer 
+text-white hover:text-slate-950" onclick={onClick}>
 
     {@render children()}
 
 </button>
+
+<style>
+    .gradient{
+       background: linear-gradient(to bottom, #fda238 0%, #fd3841 100%);
+       transition-duration: 400ms;
+       transition: ease-in-out all 300ms;
+    }
+    .gradient:hover{
+        background: white;
+    }
+</style>
